@@ -1,0 +1,21 @@
+name: pypi
+on: workflow_dispatch
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - name: Install requirements
+      run: pip install -r requirements.txt
+    - name: Create source & (binary) wheel distributions
+      run: python setup.py sdist bdist_wheel
+    - name: Publish package to PyPI
+      uses: pypa/gh-action-pypi-publish@master
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI }}
