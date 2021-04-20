@@ -6,9 +6,6 @@ std = CDLL(None)
 std.malloc.argtypes = [c_size_t]
 std.malloc.restype = c_void_p
 
-std.memcpy.argtypes = [c_void_p, c_void_p, c_size_t]
-std.memcpy.restype = c_void_p
-
 std.free.argtypes = [c_void_p]
 std.free.restype = None
 
@@ -23,13 +20,6 @@ std.calloc.restype = c_void_p
 def PyDataMem_AllocFunc(size):
     result = std.malloc(size)
     print('%x malloc(%d)' % (result, size))
-    return result
-
-
-@CFUNCTYPE(c_void_p, c_void_p, c_void_p, c_size_t)
-def PyDataMem_CopyFunc(dst, src, size):
-    result = std.memcpy(dst, src, size)
-    print('%x memcpy(%x, %x, %d)' % (result, dst, src, size))
     return result
 
 
@@ -58,12 +48,6 @@ class debug_allocator(metaclass=base_allocator):
     _alloc_ = PyDataMem_AllocFunc
 
     _free_ = PyDataMem_FreeFunc
-
-    # _host2obj_ = PyDataMem_CopyFunc
-
-    # _obj2host_ = PyDataMem_CopyFunc
-
-    # _obj2obj_ = PyDataMem_CopyFunc
 
     _realloc_ = PyDataMem_ReallocFunc
 

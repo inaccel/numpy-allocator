@@ -55,36 +55,6 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 
 	handler->free = (PyDataMem_FreeFunc *) *_free_->ptr;
 
-	PyCFuncPtrObject *_host2obj_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_host2obj_");
-	Py_XDECREF(_host2obj_);
-	if (!_host2obj_) {
-		PyErr_Clear();
-
-		handler->host2obj = (PyDataMem_CopyFunc *) memcpy;
-	} else {
-		handler->host2obj = (PyDataMem_CopyFunc *) *_host2obj_->ptr;
-	}
-
-	PyCFuncPtrObject *_obj2host_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_obj2host_");
-	Py_XDECREF(_obj2host_);
-	if (!_obj2host_) {
-		PyErr_Clear();
-
-		handler->obj2host = (PyDataMem_CopyFunc *) memcpy;
-	} else {
-		handler->obj2host = (PyDataMem_CopyFunc *) *_obj2host_->ptr;
-	}
-
-	PyCFuncPtrObject *_obj2obj_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_obj2obj_");
-	Py_XDECREF(_obj2obj_);
-	if (!_obj2obj_) {
-		PyErr_Clear();
-
-		handler->obj2obj = (PyDataMem_CopyFunc *) memcpy;
-	} else {
-		handler->obj2obj = (PyDataMem_CopyFunc *) *_obj2obj_->ptr;
-	}
-
 	PyCFuncPtrObject *_realloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_realloc_");
 	Py_XDECREF(_realloc_);
 	if (!_realloc_) {
