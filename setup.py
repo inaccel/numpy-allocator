@@ -17,8 +17,8 @@ setup(
             ],
             include_dirs=[
                 numpy.get_include(),
-            ]
-        )
+            ],
+        ),
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

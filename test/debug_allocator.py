@@ -3,17 +3,17 @@ from numpy_allocator import base_allocator
 
 std = CDLL(None)
 
-std.malloc.argtypes = [c_size_t]
-std.malloc.restype = c_void_p
+std.calloc.argtypes = [c_size_t, c_size_t]
+std.calloc.restype = c_void_p
 
 std.free.argtypes = [c_void_p]
 std.free.restype = None
 
+std.malloc.argtypes = [c_size_t]
+std.malloc.restype = c_void_p
+
 std.realloc.argtypes = [c_void_p, c_size_t]
 std.realloc.restype = c_void_p
-
-std.calloc.argtypes = [c_size_t, c_size_t]
-std.calloc.restype = c_void_p
 
 
 @CFUNCTYPE(c_void_p, c_size_t)

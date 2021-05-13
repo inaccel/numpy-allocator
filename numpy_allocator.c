@@ -25,6 +25,22 @@ static void tp_finalize(PyObject *cls) {
 	free(handler);
 }
 
+static void *default_zeroed_alloc(size_t nelems, size_t elsize) {
+	return calloc(nelems, elsize);
+}
+
+static void *default_realloc(void *ptr, size_t size) {
+	return realloc(ptr, size);
+}
+
+static void default_free(void *ptr, size_t size) {
+	free(ptr);
+}
+
+static void *default_alloc(size_t size) {
+	return malloc(size);
+}
+
 static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 	PyDataMem_Handler *handler = (PyDataMem_Handler *) calloc(1, sizeof(PyDataMem_Handler));
 	if (!handler) {
@@ -38,42 +54,34 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 	PyCFuncPtrObject *_alloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_alloc_");
 	Py_XDECREF(_alloc_);
 	if (!_alloc_) {
-		free(handler);
-
-		return -1;
+		handler->alloc = (PyDataMem_AllocFunc *) default_alloc;
+	} else {
+		handler->alloc = (PyDataMem_AllocFunc *) *_alloc_->ptr;
 	}
-
-	handler->alloc = (PyDataMem_AllocFunc *) *_alloc_->ptr;
 
 	PyCFuncPtrObject *_free_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_free_");
 	Py_XDECREF(_free_);
 	if (!_free_) {
-		free(handler);
-
-		return -1;
+		handler->free = (PyDataMem_FreeFunc *) default_free;
+	} else {
+		handler->free = (PyDataMem_FreeFunc *) *_free_->ptr;
 	}
-
-	handler->free = (PyDataMem_FreeFunc *) *_free_->ptr;
 
 	PyCFuncPtrObject *_realloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_realloc_");
 	Py_XDECREF(_realloc_);
 	if (!_realloc_) {
-		free(handler);
-
-		return -1;
+		handler->realloc = (PyDataMem_ReallocFunc *) default_realloc;
+	} else {
+		handler->realloc = (PyDataMem_ReallocFunc *) *_realloc_->ptr;
 	}
-
-	handler->realloc = (PyDataMem_ReallocFunc *) *_realloc_->ptr;
 
 	PyCFuncPtrObject *_zeroed_alloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_zeroed_alloc_");
 	Py_XDECREF(_zeroed_alloc_);
 	if (!_zeroed_alloc_) {
-		free(handler);
-
-		return -1;
+		handler->zeroed_alloc = (PyDataMem_ZeroedAllocFunc *) default_zeroed_alloc;
+	} else {
+		handler->zeroed_alloc = (PyDataMem_ZeroedAllocFunc *) *_zeroed_alloc_->ptr;
 	}
-
-	handler->zeroed_alloc = (PyDataMem_ZeroedAllocFunc *) *_zeroed_alloc_->ptr;
 
 	PyObject *_handler_ = PyCapsule_New(handler, NULL, NULL);
 	if (!_handler_) {

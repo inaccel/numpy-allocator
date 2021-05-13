@@ -4,7 +4,7 @@
 
 #### Customize Memory Allocators
 
-Α metaclass is used to override the internal data memory routines. The metaclass has four required fields:
+Α metaclass is used to override the internal data memory routines. The metaclass has four optional fields:
 
 ```python
 >>> from numpy_allocator import base_allocator
