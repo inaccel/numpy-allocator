@@ -15,7 +15,7 @@ static void tp_finalize(PyObject *cls) {
 		return;
 	}
 
-	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, NULL);
+	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "handler");
 	if (!handler) {
 		return;
 	}
@@ -83,7 +83,7 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 		handler->zeroed_alloc = (PyDataMem_ZeroedAllocFunc *) *_zeroed_alloc_->ptr;
 	}
 
-	PyObject *_handler_ = PyCapsule_New(handler, NULL, NULL);
+	PyObject *_handler_ = PyCapsule_New(handler, "handler", NULL);
 	if (!_handler_) {
 		free(handler);
 
@@ -123,21 +123,88 @@ static PyObject *handles(PyObject *cls, PyObject *args) {
 	Py_RETURN_TRUE;
 }
 
-static PyObject *__swap__(PyObject *cls, PyObject *args) {
+static void *PyThreadState_GetPointerString(const char *key) {
+	PyObject *state = PyThreadState_GetDict();
+	if (!state) {
+		return NULL;
+	}
+
+	PyObject *value = PyDict_GetItemString(state, key);
+	if (!value) {
+		return NULL;
+	}
+
+	void *pointer = PyCapsule_GetPointer(value, key);
+	if (!pointer) {
+		return NULL;
+	}
+
+	if (PyDict_DelItemString(state, key)) {
+		return NULL;
+	}
+
+	Py_DECREF(value);
+
+	return pointer;
+}
+
+static PyObject *__exit__(PyObject *cls, PyObject *args) {
 	PyObject *_handler_ = PyObject_GetAttrString(cls, "_handler_");
 	Py_XDECREF(_handler_);
 	if (!_handler_) {
 		return NULL;
 	}
 
-	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, NULL);
+	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "handler");
 	if (!handler) {
 		return NULL;
 	}
 
-	handler = (PyDataMem_Handler *) PyDataMem_SetHandler(handler);
+	PyDataMem_Handler *old = (PyDataMem_Handler *) PyThreadState_GetPointerString(handler->name);
+	if (!old) {
+		return NULL;
+	}
 
-	if (PyCapsule_SetPointer(_handler_, handler)) {
+	PyDataMem_SetHandler(old);
+
+	return Py_None;
+}
+
+int PyThreadState_SetPointerString(const char *key, void *pointer) {
+	PyObject *state = PyThreadState_GetDict();
+	if (!state) {
+		return -1;
+	}
+
+	PyObject *value = PyCapsule_New(pointer, key, NULL);
+	if (!value) {
+		return -1;
+	}
+
+	if (PyDict_SetItemString(state, key, value)) {
+		Py_DECREF(value);
+
+		return -1;
+	}
+
+	return 0;
+}
+
+static PyObject *__enter__(PyObject *cls, PyObject *args) {
+	PyObject *_handler_ = PyObject_GetAttrString(cls, "_handler_");
+	Py_XDECREF(_handler_);
+	if (!_handler_) {
+		return NULL;
+	}
+
+	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "handler");
+	if (!handler) {
+		return NULL;
+	}
+
+	PyDataMem_Handler *old = (PyDataMem_Handler *) PyDataMem_SetHandler(handler);
+
+	if (PyThreadState_SetPointerString(handler->name, old)) {
 		return NULL;
 	}
 
@@ -145,8 +212,8 @@ static PyObject *__swap__(PyObject *cls, PyObject *args) {
 }
 
 static PyMethodDef tp_methods[] = {
-	{"__enter__", __swap__, METH_NOARGS, NULL},
-	{"__exit__", __swap__, METH_VARARGS, NULL},
+	{"__enter__", __enter__, METH_NOARGS, NULL},
+	{"__exit__", __exit__, METH_VARARGS, NULL},
 	{"handles", handles, METH_O, NULL},
 	{NULL, NULL, 0, NULL},
 };
