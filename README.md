@@ -11,10 +11,10 @@
 >>> import ctypes
 >>> my = ctypes.CDLL('libmy.so')
 >>> class my_allocator(metaclass=base_allocator):
-...     _alloc_ = my.alloc_func
+...     _calloc_ = my.calloc_func
 ...     _free_ = my.free_func
+...     _malloc_ = my.malloc_func
 ...     _realloc_ = my.realloc_func
-...     _zeroed_alloc_ = my.zeroed_alloc_func
 ...
 ```
 

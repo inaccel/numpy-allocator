@@ -16,10 +16,10 @@ std.realloc.argtypes = [c_void_p, c_size_t]
 std.realloc.restype = c_void_p
 
 
-@CFUNCTYPE(c_void_p, c_size_t)
-def PyDataMem_AllocFunc(size):
-    result = std.malloc(size)
-    print('%x malloc(%d)' % (result, size))
+@CFUNCTYPE(c_void_p, c_size_t, c_size_t)
+def PyDataMem_CallocFunc(nelem, elsize):
+    result = std.calloc(nelem, elsize)
+    print('%x calloc(%d, %d)' % (result, nelem, elsize))
     return result
 
 
@@ -29,29 +29,29 @@ def PyDataMem_FreeFunc(ptr, size):
     print('free(%x)' % ptr)
 
 
-@CFUNCTYPE(c_void_p, c_void_p, c_size_t)
-def PyDataMem_ReallocFunc(ptr, size):
-    result = std.realloc(ptr, size)
-    print('%x realloc(%x, %d)' % (result, ptr, size))
+@CFUNCTYPE(c_void_p, c_size_t)
+def PyDataMem_MallocFunc(size):
+    result = std.malloc(size)
+    print('%x malloc(%d)' % (result, size))
     return result
 
 
-@CFUNCTYPE(c_void_p, c_size_t, c_size_t)
-def PyDataMem_ZeroedAllocFunc(nelems, elsize):
-    result = std.calloc(nelems, elsize)
-    print('%x calloc(%d, %d)' % (result, nelems, elsize))
+@CFUNCTYPE(c_void_p, c_void_p, c_size_t)
+def PyDataMem_ReallocFunc(ptr, new_size):
+    result = std.realloc(ptr, new_size)
+    print('%x realloc(%x, %d)' % (result, ptr, new_size))
     return result
 
 
 class debug_allocator(metaclass=base_allocator):
 
-    _alloc_ = PyDataMem_AllocFunc
+    _calloc_ = PyDataMem_CallocFunc
 
     _free_ = PyDataMem_FreeFunc
 
-    _realloc_ = PyDataMem_ReallocFunc
+    _malloc_ = PyDataMem_MallocFunc
 
-    _zeroed_alloc_ = PyDataMem_ZeroedAllocFunc
+    _realloc_ = PyDataMem_ReallocFunc
 
 
 def main():
