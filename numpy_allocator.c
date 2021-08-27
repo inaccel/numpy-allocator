@@ -98,6 +98,17 @@ static void *default_calloc(void *ctx, size_t nelem, size_t elsize) {
 	return calloc(nelem, elsize);
 }
 
+static void handler_destructor(PyObject *_handler_) {
+	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "mem_handler");
+	if (!handler) {
+		return;
+	}
+
+	free(handler->allocator.ctx);
+
+	free(handler);
+}
+
 static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 	PyDataMem_Handler *handler = (PyDataMem_Handler *) calloc(1, sizeof(PyDataMem_Handler));
 	if (!handler) {
@@ -115,7 +126,7 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 		return -1;
 	}
 
-	PyObject *_handler_ = PyCapsule_New(handler, "handler", NULL);
+	PyObject *_handler_ = PyCapsule_New(handler, "mem_handler", handler_destructor);
 	if (!_handler_) {
 		free(handler->allocator.ctx);
 
@@ -165,10 +176,6 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 	int error = PyObject_SetAttrString(cls, "_handler_", _handler_);
 	Py_DECREF(_handler_);
 	if (error) {
-		free(handler->allocator.ctx);
-
-		free(handler);
-
 		return -1;
 	}
 
@@ -178,9 +185,14 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 static PyObject *handles(PyObject *cls, PyObject *args) {
 	while (args != NULL && PyArray_Check(args)) {
 		if (PyArray_CHKFLAGS((PyArrayObject *) args, NPY_ARRAY_OWNDATA)) {
-			PyDataMem_Handler *handler = ((PyArrayObject_fields *) args)->mem_handler;
-			if (!handler) {
+			PyObject *_handler_ = PyArray_HANDLER((PyArrayObject *) args);
+			if (!_handler_) {
 				PyErr_SetString(PyExc_RuntimeError, "no memory handler found but OWNDATA flag set");
+				return NULL;
+			}
+
+			PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "mem_handler");
+			if (!handler) {
 				return NULL;
 			}
 
@@ -200,7 +212,7 @@ static PyObject *handles(PyObject *cls, PyObject *args) {
 
 PyObject *var;
 
-static void *PyContextVar_PopPointer(PyObject *var, const char *name) {
+static PyObject *PyContextVar_Pop(PyObject *var) {
 	PyObject *list;
 	if (PyContextVar_Get(var, NULL, &list)) {
 		return NULL;
@@ -217,45 +229,36 @@ static void *PyContextVar_PopPointer(PyObject *var, const char *name) {
 	Py_DECREF(list);
 	if (error) {
 		Py_DECREF(capsule);
-	}
 
-	void *pointer = PyCapsule_GetPointer(capsule, name);
-	Py_DECREF(capsule);
-	if (!pointer) {
 		return NULL;
 	}
 
-	return pointer;
+	return capsule;
 }
 
 static PyObject *__exit__(PyObject *cls, PyObject *args) {
-	PyDataMem_Handler *new_handler = (PyDataMem_Handler *) PyContextVar_PopPointer(var, "handler");
+	PyObject *new_handler = PyContextVar_Pop(var);
 	if (!new_handler) {
 		return NULL;
 	}
 
-	if (!PyDataMem_SetHandler(new_handler)) {
+	PyObject *old_handler = PyDataMem_SetHandler(new_handler);
+	Py_DECREF(new_handler);
+	if (!old_handler) {
 		return NULL;
 	}
+	Py_DECREF(old_handler);
 
 	Py_RETURN_NONE;
 }
 
-static int PyContextVar_PushPointer(PyObject *var, void *pointer, const char *name) {
+static int PyContextVar_Push(PyObject *var, PyObject *capsule) {
 	PyObject *list;
 	if (PyContextVar_Get(var, NULL, &list)) {
 		return -1;
 	}
 
-	PyObject *capsule = PyCapsule_New(pointer, name, NULL);
-	if (!capsule) {
-		Py_DECREF(list);
-
-		return -1;
-	}
-
 	int error = PyList_Append(list, capsule);
-	Py_DECREF(capsule);
 	Py_DECREF(list);
 	if (error) {
 		return -1;
@@ -265,23 +268,20 @@ static int PyContextVar_PushPointer(PyObject *var, void *pointer, const char *na
 }
 
 static PyObject *__enter__(PyObject *cls, PyObject *args) {
-	PyObject *_handler_ = PyObject_GetAttrString(cls, "_handler_");
-	if (!_handler_) {
+	PyObject *new_handler = PyObject_GetAttrString(cls, "_handler_");
+	if (!new_handler) {
 		return NULL;
 	}
 
-	PyDataMem_Handler *handler = (PyDataMem_Handler *) PyCapsule_GetPointer(_handler_, "handler");
-	Py_DECREF(_handler_);
-	if (!handler) {
-		return NULL;
-	}
-
-	PyDataMem_Handler *old_handler = (PyDataMem_Handler *) PyDataMem_SetHandler(handler);
+	PyObject *old_handler = PyDataMem_SetHandler(new_handler);
+	Py_DECREF(new_handler);
 	if (!old_handler) {
 		return NULL;
 	}
 
-	if (PyContextVar_PushPointer(var, old_handler, "handler")) {
+	int error = PyContextVar_Push(var, old_handler);
+	Py_DECREF(old_handler);
+	if (error) {
 		return NULL;
 	}
 
