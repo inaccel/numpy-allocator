@@ -8,24 +8,18 @@ typedef struct {
 	void **ptr;
 } PyCFuncPtrObject;
 
-typedef void *(PyDataMem_ReallocFunc)(void *ptr, size_t new_size);
-
-typedef void *(PyDataMem_MallocFunc)(size_t size);
-
-typedef void (PyDataMem_FreeFunc)(void *ptr, size_t size);
-
-typedef void *(PyDataMem_CallocFunc)(size_t nelem, size_t elsize);
-
 typedef struct {
-	PyDataMem_CallocFunc *calloc;
-	PyDataMem_FreeFunc *free;
-	PyDataMem_MallocFunc *malloc;
-	PyDataMem_ReallocFunc *realloc;
+	PyCFuncPtrObject *calloc;
+	PyCFuncPtrObject *free;
+	PyCFuncPtrObject *malloc;
+	PyCFuncPtrObject *realloc;
 } PyDataMem_Funcs;
 
 static void tp_finalize(PyObject *cls) {
 	PyObject_DelAttrString(cls, "_handler_");
 }
+
+typedef void *(PyDataMem_ReallocFunc)(void *ptr, size_t new_size);
 
 static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
 	PyObject *type;
@@ -34,7 +28,7 @@ static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *new_ptr = ((PyDataMem_Funcs *) ctx)->realloc(ptr, new_size);
+	void *new_ptr = ((PyDataMem_ReallocFunc *) *((PyDataMem_Funcs *) ctx)->realloc->ptr)(ptr, new_size);
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -45,6 +39,8 @@ static void *default_realloc(void *ctx, void *ptr, size_t new_size) {
 	return realloc(ptr, new_size);
 }
 
+typedef void *(PyDataMem_MallocFunc)(size_t size);
+
 static void *safe_malloc(void *ctx, size_t size) {
 	PyObject *type;
 	PyObject *value;
@@ -52,7 +48,7 @@ static void *safe_malloc(void *ctx, size_t size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *ptr = ((PyDataMem_Funcs *) ctx)->malloc(size);
+	void *ptr = ((PyDataMem_MallocFunc *) *((PyDataMem_Funcs *) ctx)->malloc->ptr)(size);
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -63,6 +59,8 @@ static void *default_malloc(void *ctx, size_t size) {
 	return malloc(size);
 }
 
+typedef void (PyDataMem_FreeFunc)(void *ptr, size_t size);
+
 static void safe_free(void *ctx, void *ptr, size_t size) {
 	PyObject *type;
 	PyObject *value;
@@ -70,7 +68,7 @@ static void safe_free(void *ctx, void *ptr, size_t size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	((PyDataMem_Funcs *) ctx)->free(ptr, size);
+	((PyDataMem_FreeFunc *) *((PyDataMem_Funcs *) ctx)->free->ptr)(ptr, size);
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -80,6 +78,8 @@ static void default_free(void *ctx, void *ptr, size_t size) {
 	free(ptr);
 }
 
+typedef void *(PyDataMem_CallocFunc)(size_t nelem, size_t elsize);
+
 static void *safe_calloc(void *ctx, size_t nelem, size_t elsize) {
 	PyObject *type;
 	PyObject *value;
@@ -87,7 +87,7 @@ static void *safe_calloc(void *ctx, size_t nelem, size_t elsize) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *ptr = ((PyDataMem_Funcs *) ctx)->calloc(nelem, elsize);
+	void *ptr = ((PyDataMem_CallocFunc *) *((PyDataMem_Funcs *) ctx)->calloc->ptr)(nelem, elsize);
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -103,6 +103,14 @@ static void handler_destructor(PyObject *_handler_) {
 	if (!handler) {
 		return;
 	}
+
+	Py_XDECREF(((PyDataMem_Funcs *) handler->allocator.ctx)->realloc);
+
+	Py_XDECREF(((PyDataMem_Funcs *) handler->allocator.ctx)->malloc);
+
+	Py_XDECREF(((PyDataMem_Funcs *) handler->allocator.ctx)->free);
+
+	Py_XDECREF(((PyDataMem_Funcs *) handler->allocator.ctx)->calloc);
 
 	free(handler->allocator.ctx);
 
@@ -138,38 +146,34 @@ static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
 	strncpy(handler->name, _PyType_Name((PyTypeObject *) cls), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
 
 	PyCFuncPtrObject *_calloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_calloc_");
-	Py_XDECREF(_calloc_);
 	if (!_calloc_) {
 		handler->allocator.calloc = default_calloc;
 	} else {
-		((PyDataMem_Funcs *) handler->allocator.ctx)->calloc = (PyDataMem_CallocFunc *) *_calloc_->ptr;
+		((PyDataMem_Funcs *) handler->allocator.ctx)->calloc = _calloc_;
 		handler->allocator.calloc = safe_calloc;
 	}
 
 	PyCFuncPtrObject *_free_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_free_");
-	Py_XDECREF(_free_);
 	if (!_free_) {
 		handler->allocator.free = default_free;
 	} else {
-		((PyDataMem_Funcs *) handler->allocator.ctx)->free = (PyDataMem_FreeFunc *) *_free_->ptr;
+		((PyDataMem_Funcs *) handler->allocator.ctx)->free = _free_;
 		handler->allocator.free = safe_free;
 	}
 
 	PyCFuncPtrObject *_malloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_malloc_");
-	Py_XDECREF(_malloc_);
 	if (!_malloc_) {
 		handler->allocator.malloc = default_malloc;
 	} else {
-		((PyDataMem_Funcs *) handler->allocator.ctx)->malloc = (PyDataMem_MallocFunc *) *_malloc_->ptr;
+		((PyDataMem_Funcs *) handler->allocator.ctx)->malloc = _malloc_;
 		handler->allocator.malloc = safe_malloc;
 	}
 
 	PyCFuncPtrObject *_realloc_ = (PyCFuncPtrObject *) PyObject_GetAttrString(cls, "_realloc_");
-	Py_XDECREF(_realloc_);
 	if (!_realloc_) {
 		handler->allocator.realloc = default_realloc;
 	} else {
-		((PyDataMem_Funcs *) handler->allocator.ctx)->realloc = (PyDataMem_ReallocFunc *) *_realloc_->ptr;
+		((PyDataMem_Funcs *) handler->allocator.ctx)->realloc = _realloc_;
 		handler->allocator.realloc = safe_realloc;
 	}
 
