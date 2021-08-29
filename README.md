@@ -1,6 +1,8 @@
-## Memory management in NumPy
+## Memory management in [NumPy](https://numpy.org)*
 
 [![PyPI version](https://badge.fury.io/py/numpy-allocator.svg)](https://badge.fury.io/py/numpy-allocator)
+
+**NumPy is a trademark owned by [NumFOCUS](https://numfocus.org).*
 
 #### Customize Memory Allocators
 
