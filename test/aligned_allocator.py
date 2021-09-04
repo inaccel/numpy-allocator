@@ -23,7 +23,8 @@ std.realloc.restype = c_void_p
 @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
 def aligned_calloc(nelem, elsize):
     result = std.memalign(PAGESIZE, nelem * elsize)
-    result = std.memset(result, 0, nelem * elsize)
+    if result:
+        result = std.memset(result, 0, nelem * elsize)
     return result
 
 
@@ -35,10 +36,11 @@ def aligned_malloc(size):
 @CFUNCTYPE(c_void_p, c_void_p, c_size_t)
 def aligned_realloc(ptr, new_size):
     result = std.realloc(ptr, new_size)
-    if result % PAGESIZE != 0:
+    if result and result % PAGESIZE != 0:
         tmp = result
         result = std.memalign(PAGESIZE, new_size)
-        result = std.memcpy(result, tmp, new_size)
+        if result:
+            result = std.memcpy(result, tmp, new_size)
         std.free(tmp)
     return result
 

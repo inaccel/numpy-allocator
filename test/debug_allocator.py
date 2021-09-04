@@ -19,7 +19,10 @@ std.realloc.restype = c_void_p
 @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
 def PyDataMem_CallocFunc(nelem, elsize):
     result = std.calloc(nelem, elsize)
-    print('%x calloc(%d, %d)' % (result, nelem, elsize))
+    if result:
+        print('%x calloc(%d, %d)' % (result, nelem, elsize))
+    else:
+        print('calloc(%d, %d)' % (nelem, elsize))
     return result
 
 
@@ -32,14 +35,20 @@ def PyDataMem_FreeFunc(ptr, size):
 @CFUNCTYPE(c_void_p, c_size_t)
 def PyDataMem_MallocFunc(size):
     result = std.malloc(size)
-    print('%x malloc(%d)' % (result, size))
+    if result:
+        print('%x malloc(%d)' % (result, size))
+    else:
+        print('malloc(%d)' % size)
     return result
 
 
 @CFUNCTYPE(c_void_p, c_void_p, c_size_t)
 def PyDataMem_ReallocFunc(ptr, new_size):
     result = std.realloc(ptr, new_size)
-    print('%x realloc(%x, %d)' % (result, ptr, new_size))
+    if result:
+        print('%x realloc(%x, %d)' % (result, ptr, new_size))
+    else:
+        print('realloc(%x, %d)' % (ptr, new_size))
     return result
 
 
