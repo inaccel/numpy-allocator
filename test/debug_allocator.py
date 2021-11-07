@@ -1,5 +1,5 @@
 from ctypes import *
-from numpy_allocator import base_allocator
+import numpy_allocator
 
 std = CDLL(None)
 
@@ -52,7 +52,7 @@ def PyDataMem_ReallocFunc(ptr, new_size):
     return result
 
 
-class debug_allocator(metaclass=base_allocator):
+class debug_allocator(metaclass=numpy_allocator.type):
 
     _calloc_ = PyDataMem_CallocFunc
 

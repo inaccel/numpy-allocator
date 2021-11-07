@@ -1,6 +1,6 @@
 from ctypes import *
 from mmap import PAGESIZE
-from numpy_allocator import base_allocator
+import numpy_allocator
 
 std = CDLL(None)
 
@@ -45,7 +45,7 @@ def aligned_realloc(ptr, new_size):
     return result
 
 
-class aligned_allocator(metaclass=base_allocator):
+class aligned_allocator(metaclass=numpy_allocator.type):
 
     _calloc_ = aligned_calloc
 

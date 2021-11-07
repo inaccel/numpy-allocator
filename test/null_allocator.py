@@ -1,5 +1,5 @@
 from ctypes import *
-from numpy_allocator import base_allocator
+import numpy_allocator
 
 
 @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
@@ -22,7 +22,7 @@ def null_realloc(ptr, new_size):
     return None
 
 
-class null_allocator(metaclass=base_allocator):
+class null_allocator(metaclass=numpy_allocator.type):
 
     _calloc_ = null_calloc
 

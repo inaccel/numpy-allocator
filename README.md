@@ -10,10 +10,10 @@
 Α metaclass is used to override the internal data memory routines. The metaclass has four optional fields:
 
 ```python
->>> from numpy_allocator import base_allocator
 >>> import ctypes
+>>> import numpy_allocator
 >>> my = ctypes.CDLL('libmy.so')
->>> class my_allocator(metaclass=base_allocator):
+>>> class my_allocator(metaclass=numpy_allocator.type):
 ...     _calloc_ = my.calloc_func
 ...     _free_ = my.free_func
 ...     _malloc_ = my.malloc_func
