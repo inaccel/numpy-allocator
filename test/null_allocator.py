@@ -2,35 +2,22 @@ from ctypes import *
 import numpy_allocator
 
 
-@CFUNCTYPE(c_void_p, c_size_t, c_size_t)
-def null_calloc(nelem, elsize):
-    return None
-
-
-@CFUNCTYPE(None, c_void_p, c_size_t)
-def null_free(ptr, size):
-    pass
-
-
-@CFUNCTYPE(c_void_p, c_size_t)
-def null_malloc(size):
-    return None
-
-
-@CFUNCTYPE(c_void_p, c_void_p, c_size_t)
-def null_realloc(ptr, new_size):
-    return None
-
-
 class null_allocator(metaclass=numpy_allocator.type):
+    @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
+    def _calloc_(nelem, elsize):
+        return None
 
-    _calloc_ = null_calloc
+    @CFUNCTYPE(None, c_void_p, c_size_t)
+    def _free_(ptr, size):
+        pass
 
-    _free_ = null_free
+    @CFUNCTYPE(c_void_p, c_size_t)
+    def _malloc_(size):
+        return None
 
-    _malloc_ = null_malloc
-
-    _realloc_ = null_realloc
+    @CFUNCTYPE(c_void_p, c_void_p, c_size_t)
+    def _realloc_(ptr, new_size):
+        return None
 
 
 def main():
