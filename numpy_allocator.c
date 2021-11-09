@@ -15,10 +15,6 @@ typedef struct {
 	PyCFuncPtrObject *realloc;
 } PyDataMem_Funcs;
 
-static void tp_finalize(PyObject *cls) {
-	PyObject_DelAttrString(cls, "_handler_");
-}
-
 typedef void *(PyDataMem_ReallocFunc)(void *ptr, size_t new_size);
 
 static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
@@ -117,80 +113,84 @@ static void handler_destructor(PyObject *handler) {
 	free(mem_handler);
 }
 
-static int tp_init(PyObject *cls, PyObject *args, PyObject *kwds) {
-	PyDataMem_Handler *mem_handler = (PyDataMem_Handler *) calloc(1, sizeof(PyDataMem_Handler));
-	if (!mem_handler) {
-		PyErr_NoMemory();
-
-		return -1;
-	}
-
-	mem_handler->allocator.ctx = calloc(1, sizeof(PyDataMem_Funcs));
-	if (!mem_handler->allocator.ctx) {
-		free(mem_handler);
-
-		PyErr_NoMemory();
-
-		return -1;
-	}
-
-	PyObject *handler = PyCapsule_New(mem_handler, "mem_handler", handler_destructor);
-	if (!handler) {
-		free(mem_handler->allocator.ctx);
-
-		free(mem_handler);
-
-		return -1;
-	}
-
-	strncpy(mem_handler->name, _PyType_Name((PyTypeObject *) cls), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
-
-	PyObject *_calloc_ = PyObject_GetAttrString(cls, "_calloc_");
-	if (!_calloc_ || _calloc_ == Py_None) {
-		Py_XDECREF(_calloc_);
-		mem_handler->allocator.calloc = default_calloc;
+static PyObject *handler(PyObject *allocator, PyObject *args) {
+	if (PyObject_HasAttrString(allocator, "_handler_")) {
+		return PyObject_GetAttrString(allocator, "_handler_");
 	} else {
-		((PyDataMem_Funcs *) mem_handler->allocator.ctx)->calloc = (PyCFuncPtrObject *) _calloc_;
-		mem_handler->allocator.calloc = safe_calloc;
-	}
+		PyDataMem_Handler *mem_handler = (PyDataMem_Handler *) calloc(1, sizeof(PyDataMem_Handler));
+		if (!mem_handler) {
+			PyErr_NoMemory();
 
-	PyObject *_free_ = PyObject_GetAttrString(cls, "_free_");
-	if (!_free_ || _free_ == Py_None) {
-		Py_XDECREF(_free_);
-		mem_handler->allocator.free = default_free;
-	} else {
-		((PyDataMem_Funcs *) mem_handler->allocator.ctx)->free = (PyCFuncPtrObject *) _free_;
-		mem_handler->allocator.free = safe_free;
-	}
+			return NULL;
+		}
 
-	PyObject *_malloc_ = PyObject_GetAttrString(cls, "_malloc_");
-	if (!_malloc_ || _malloc_ == Py_None) {
-		Py_XDECREF(_malloc_);
-		mem_handler->allocator.malloc = default_malloc;
-	} else {
-		((PyDataMem_Funcs *) mem_handler->allocator.ctx)->malloc = (PyCFuncPtrObject *) _malloc_;
-		mem_handler->allocator.malloc = safe_malloc;
-	}
+		mem_handler->allocator.ctx = calloc(1, sizeof(PyDataMem_Funcs));
+		if (!mem_handler->allocator.ctx) {
+			free(mem_handler);
 
-	PyObject *_realloc_ = PyObject_GetAttrString(cls, "_realloc_");
-	if (!_realloc_ || _realloc_ == Py_None) {
-		Py_XDECREF(_realloc_);
-		mem_handler->allocator.realloc = default_realloc;
-	} else {
-		((PyDataMem_Funcs *) mem_handler->allocator.ctx)->realloc = (PyCFuncPtrObject *) _realloc_;
-		mem_handler->allocator.realloc = safe_realloc;
-	}
+			PyErr_NoMemory();
 
-	int error = PyObject_SetAttrString(cls, "_handler_", handler);
-	Py_DECREF(handler);
-	if (error) {
-		return -1;
-	}
+			return NULL;
+		}
 
-	return 0;
+		PyObject *handler = PyCapsule_New(mem_handler, "mem_handler", handler_destructor);
+		if (!handler) {
+			free(mem_handler->allocator.ctx);
+
+			free(mem_handler);
+
+			return NULL;
+		}
+
+		strncpy(mem_handler->name, _PyType_Name((PyTypeObject *) allocator), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
+
+		PyObject *_calloc_ = PyObject_GetAttrString(allocator, "_calloc_");
+		if (!_calloc_ || _calloc_ == Py_None) {
+			Py_XDECREF(_calloc_);
+			mem_handler->allocator.calloc = default_calloc;
+		} else {
+			((PyDataMem_Funcs *) mem_handler->allocator.ctx)->calloc = (PyCFuncPtrObject *) _calloc_;
+			mem_handler->allocator.calloc = safe_calloc;
+		}
+
+		PyObject *_free_ = PyObject_GetAttrString(allocator, "_free_");
+		if (!_free_ || _free_ == Py_None) {
+			Py_XDECREF(_free_);
+			mem_handler->allocator.free = default_free;
+		} else {
+			((PyDataMem_Funcs *) mem_handler->allocator.ctx)->free = (PyCFuncPtrObject *) _free_;
+			mem_handler->allocator.free = safe_free;
+		}
+
+		PyObject *_malloc_ = PyObject_GetAttrString(allocator, "_malloc_");
+		if (!_malloc_ || _malloc_ == Py_None) {
+			Py_XDECREF(_malloc_);
+			mem_handler->allocator.malloc = default_malloc;
+		} else {
+			((PyDataMem_Funcs *) mem_handler->allocator.ctx)->malloc = (PyCFuncPtrObject *) _malloc_;
+			mem_handler->allocator.malloc = safe_malloc;
+		}
+
+		PyObject *_realloc_ = PyObject_GetAttrString(allocator, "_realloc_");
+		if (!_realloc_ || _realloc_ == Py_None) {
+			Py_XDECREF(_realloc_);
+			mem_handler->allocator.realloc = default_realloc;
+		} else {
+			((PyDataMem_Funcs *) mem_handler->allocator.ctx)->realloc = (PyCFuncPtrObject *) _realloc_;
+			mem_handler->allocator.realloc = safe_realloc;
+		}
+
+		if (PyObject_SetAttrString(allocator, "_handler_", handler)) {
+			Py_DECREF(handler);
+
+			return NULL;
+		}
+
+		return handler;
+	}
 }
 
-static PyObject *handles(PyObject *cls, PyObject *args) {
+static PyObject *handles(PyObject *allocator, PyObject *args) {
 	while (args && PyArray_Check(args)) {
 		if (PyArray_CHKFLAGS((PyArrayObject *) args, NPY_ARRAY_OWNDATA)) {
 			PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) args);
@@ -199,13 +199,13 @@ static PyObject *handles(PyObject *cls, PyObject *args) {
 				return NULL;
 			}
 
-			PyObject *handler = PyObject_GetAttrString(cls, "_handler_");
-			if (!handler) {
+			PyObject *allocator_handler = handler(allocator, args);
+			if (!allocator_handler) {
 				return NULL;
 			}
-			Py_DECREF(handler);
+			Py_DECREF(allocator_handler);
 
-			if (array_handler != handler) {
+			if (array_handler != allocator_handler) {
 				Py_RETURN_FALSE;
 			}
 
@@ -217,10 +217,6 @@ static PyObject *handles(PyObject *cls, PyObject *args) {
 
 	PyErr_SetString(PyExc_ValueError, "argument must be an ndarray");
 	return NULL;
-}
-
-static PyObject *handler(PyObject *cls, PyObject *args) {
-	return PyObject_GetAttrString(cls, "_handler_");
 }
 
 static PyObject *var;
@@ -249,7 +245,7 @@ static PyObject *PyContextVar_Pop(PyObject *var) {
 	return capsule;
 }
 
-static PyObject *__exit__(PyObject *cls, PyObject *args) {
+static PyObject *__exit__(PyObject *allocator, PyObject *args) {
 	PyObject *new_handler = PyContextVar_Pop(var);
 	if (!new_handler) {
 		return NULL;
@@ -280,8 +276,8 @@ static int PyContextVar_Push(PyObject *var, PyObject *capsule) {
 	return 0;
 }
 
-static PyObject *__enter__(PyObject *cls, PyObject *args) {
-	PyObject *new_handler = PyObject_GetAttrString(cls, "_handler_");
+static PyObject *__enter__(PyObject *allocator, PyObject *args) {
+	PyObject *new_handler = handler(allocator, args);
 	if (!new_handler) {
 		return NULL;
 	}
@@ -314,8 +310,6 @@ static PyTypeObject type = {
 	.tp_name = "numpy_allocator.type",
 	.tp_methods = tp_methods,
 	.tp_base = &PyType_Type,
-	.tp_init = tp_init,
-	.tp_finalize = tp_finalize,
 };
 
 static int exec_module(PyObject *module) {
@@ -340,6 +334,7 @@ static int exec_module(PyObject *module) {
 
 	if (PyModule_AddObject(module, _PyType_Name(&type), (PyObject *) &type)) {
 		Py_DECREF(&type);
+
 		Py_DECREF(var);
 
 		return -1;
