@@ -190,16 +190,16 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 	}
 }
 
-static PyObject *handles(PyObject *allocator, PyObject *args) {
-	while (args && PyArray_Check(args)) {
-		if (PyArray_CHKFLAGS((PyArrayObject *) args, NPY_ARRAY_OWNDATA)) {
-			PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) args);
+static PyObject *handles(PyObject *allocator, PyObject *array) {
+	while (array && PyArray_Check(array)) {
+		if (PyArray_CHKFLAGS((PyArrayObject *) array, NPY_ARRAY_OWNDATA)) {
+			PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) array);
 			if (!array_handler) {
 				PyErr_SetString(PyExc_RuntimeError, "no memory handler found but OWNDATA flag set");
 				return NULL;
 			}
 
-			PyObject *allocator_handler = handler(allocator, args);
+			PyObject *allocator_handler = handler(allocator, array);
 			if (!allocator_handler) {
 				return NULL;
 			}
@@ -212,7 +212,7 @@ static PyObject *handles(PyObject *allocator, PyObject *args) {
 			Py_RETURN_TRUE;
 		}
 
-		args = PyArray_BASE((PyArrayObject *) args);
+		array = PyArray_BASE((PyArrayObject *) array);
 	}
 
 	PyErr_SetString(PyExc_ValueError, "argument must be an ndarray");
@@ -348,19 +348,24 @@ static PyModuleDef_Slot m_slots[] = {
 	{0, NULL},
 };
 
-static PyObject *set_handler(PyObject *self, PyObject *args) {
-	if (args == Py_None) {
+static PyObject *set_handler(PyObject *module, PyObject *handler) {
+	if (handler == Py_None) {
 		return PyDataMem_SetHandler(NULL);
 	} else {
-		return PyDataMem_SetHandler(args);
+		return PyDataMem_SetHandler(handler);
 	}
 }
 
-static PyObject *get_handler(PyObject *self, PyObject *args) {
-	if (args) {
-		while (args && PyArray_Check(args)) {
-			if (PyArray_CHKFLAGS((PyArrayObject *) args, NPY_ARRAY_OWNDATA)) {
-				PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) args);
+static PyObject *get_handler(PyObject *module, PyObject *args) {
+	PyObject *array = NULL;
+	if (!PyArg_ParseTuple(args, "|O:get_handler", &array)) {
+		return NULL;
+	}
+
+	if (array) {
+		while (array && PyArray_Check(array)) {
+			if (PyArray_CHKFLAGS((PyArrayObject *) array, NPY_ARRAY_OWNDATA)) {
+				PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) array);
 				if (!array_handler) {
 					PyErr_SetString(PyExc_RuntimeError, "no memory handler found but OWNDATA flag set");
 					return NULL;
@@ -370,7 +375,7 @@ static PyObject *get_handler(PyObject *self, PyObject *args) {
 				return array_handler;
 			}
 
-			args = PyArray_BASE((PyArrayObject *) args);
+			array = PyArray_BASE((PyArrayObject *) array);
 		}
 
 		PyErr_SetString(PyExc_ValueError, "if supplied, argument must be an ndarray");
@@ -381,7 +386,7 @@ static PyObject *get_handler(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef m_methods[] = {
-	{"get_handler", get_handler, METH_O, NULL},
+	{"get_handler", get_handler, METH_VARARGS, NULL},
 	{"set_handler", set_handler, METH_O, NULL},
 	{NULL, NULL, 0, NULL},
 };
