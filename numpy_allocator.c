@@ -144,6 +144,8 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 
 		strncpy(mem_handler->name, _PyType_Name((PyTypeObject *) allocator), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
 
+		mem_handler->version = 1;
+
 		if (PyObject_HasAttrString(allocator, "_calloc_")) {
 			PyObject *_calloc_ = PyObject_GetAttrString(allocator, "_calloc_");
 			if (!_calloc_) {
