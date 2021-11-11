@@ -142,7 +142,14 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 			return NULL;
 		}
 
-		strncpy(mem_handler->name, _PyType_Name((PyTypeObject *) allocator), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
+		PyObject *name = PyObject_Str(allocator);
+		if (!name) {
+			Py_DECREF(handler);
+
+			return NULL;
+		}
+		strncpy(mem_handler->name, PyUnicode_AsUTF8(name), sizeof(((PyDataMem_Handler *) NULL)->name) - 1);
+		Py_DECREF(name);
 
 		mem_handler->version = 1;
 
@@ -339,9 +346,22 @@ static PyMethodDef tp_methods[] = {
 	{NULL, NULL, 0, NULL},
 };
 
+static PyObject *tp_str(PyObject *allocator) {
+	PyObject *__name__ = PyObject_GetAttrString(allocator, "__name__");
+	if (!__name__) {
+		return NULL;
+	}
+
+	PyObject *allocator_str = PyObject_Str(__name__);
+	Py_DECREF(__name__);
+	return allocator_str;
+}
+
 static PyTypeObject type = {
 	PyVarObject_HEAD_INIT(NULL, 0)
 	.tp_name = "numpy_allocator.type",
+	.tp_str = tp_str,
+	.tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
 	.tp_methods = tp_methods,
 	.tp_base = &PyType_Type,
 };
@@ -358,6 +378,7 @@ static int exec_module(PyObject *module) {
 		return -1;
 	}
 
+	type.tp_new = PyType_Type.tp_new;
 	if (PyType_Ready(&type)) {
 		Py_DECREF(var);
 
@@ -366,7 +387,7 @@ static int exec_module(PyObject *module) {
 
 	Py_INCREF(&type);
 
-	if (PyModule_AddObject(module, _PyType_Name(&type), (PyObject *) &type)) {
+	if (PyModule_AddObject(module, "type", (PyObject *) &type)) {
 		Py_DECREF(&type);
 
 		Py_DECREF(var);
