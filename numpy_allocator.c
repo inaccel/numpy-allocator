@@ -9,13 +9,16 @@ typedef struct {
 } PyCFuncPtrObject;
 
 typedef struct {
+	PyObject *self;
 	PyCFuncPtrObject *calloc;
 	PyCFuncPtrObject *free;
 	PyCFuncPtrObject *malloc;
 	PyCFuncPtrObject *realloc;
 } PyDataMem_Funcs;
 
-typedef void *(PyDataMem_ReallocFunc)(void *ptr, size_t new_size);
+typedef void *(PyDataMemType_ReallocFunc)(void *ptr, size_t new_size);
+
+typedef void *(PyDataMemBaseObject_ReallocFunc)(PyObject *self, void *ptr, size_t new_size);
 
 static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
 	PyObject *type;
@@ -24,7 +27,12 @@ static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *new_ptr = ((PyDataMem_ReallocFunc *) *((PyDataMem_Funcs *) ctx)->realloc->ptr)(ptr, new_size);
+	void *new_ptr;
+	if (((PyDataMem_Funcs *) ctx)->self) {
+		new_ptr = ((PyDataMemBaseObject_ReallocFunc *) *((PyDataMem_Funcs *) ctx)->realloc->ptr)(((PyDataMem_Funcs *) ctx)->self, ptr, new_size);
+	} else {
+		new_ptr = ((PyDataMemType_ReallocFunc *) *((PyDataMem_Funcs *) ctx)->realloc->ptr)(ptr, new_size);
+	}
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -35,7 +43,9 @@ static void *default_realloc(void *ctx, void *ptr, size_t new_size) {
 	return realloc(ptr, new_size);
 }
 
-typedef void *(PyDataMem_MallocFunc)(size_t size);
+typedef void *(PyDataMemType_MallocFunc)(size_t size);
+
+typedef void *(PyDataMemBaseObject_MallocFunc)(PyObject *self, size_t size);
 
 static void *safe_malloc(void *ctx, size_t size) {
 	PyObject *type;
@@ -44,7 +54,12 @@ static void *safe_malloc(void *ctx, size_t size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *ptr = ((PyDataMem_MallocFunc *) *((PyDataMem_Funcs *) ctx)->malloc->ptr)(size);
+	void *ptr;
+	if (((PyDataMem_Funcs *) ctx)->self) {
+		ptr = ((PyDataMemBaseObject_MallocFunc *) *((PyDataMem_Funcs *) ctx)->malloc->ptr)(((PyDataMem_Funcs *) ctx)->self, size);
+	} else {
+		ptr = ((PyDataMemType_MallocFunc *) *((PyDataMem_Funcs *) ctx)->malloc->ptr)(size);
+	}
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -55,7 +70,9 @@ static void *default_malloc(void *ctx, size_t size) {
 	return malloc(size);
 }
 
-typedef void (PyDataMem_FreeFunc)(void *ptr, size_t size);
+typedef void (PyDataMemType_FreeFunc)(void *ptr, size_t size);
+
+typedef void (PyDataMemBaseObject_FreeFunc)(PyObject *self, void *ptr, size_t size);
 
 static void safe_free(void *ctx, void *ptr, size_t size) {
 	PyObject *type;
@@ -64,7 +81,11 @@ static void safe_free(void *ctx, void *ptr, size_t size) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	((PyDataMem_FreeFunc *) *((PyDataMem_Funcs *) ctx)->free->ptr)(ptr, size);
+	if (((PyDataMem_Funcs *) ctx)->self) {
+		((PyDataMemBaseObject_FreeFunc *) *((PyDataMem_Funcs *) ctx)->free->ptr)(((PyDataMem_Funcs *) ctx)->self, ptr, size);
+	} else {
+		((PyDataMemType_FreeFunc *) *((PyDataMem_Funcs *) ctx)->free->ptr)(ptr, size);
+	}
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -74,7 +95,9 @@ static void default_free(void *ctx, void *ptr, size_t size) {
 	free(ptr);
 }
 
-typedef void *(PyDataMem_CallocFunc)(size_t nelem, size_t elsize);
+typedef void *(PyDataMemType_CallocFunc)(size_t nelem, size_t elsize);
+
+typedef void *(PyDataMemBaseObject_CallocFunc)(PyObject *self, size_t nelem, size_t elsize);
 
 static void *safe_calloc(void *ctx, size_t nelem, size_t elsize) {
 	PyObject *type;
@@ -83,7 +106,12 @@ static void *safe_calloc(void *ctx, size_t nelem, size_t elsize) {
 	if (PyGILState_Check()) {
 		PyErr_Fetch(&type, &value, &traceback);
 	}
-	void *ptr = ((PyDataMem_CallocFunc *) *((PyDataMem_Funcs *) ctx)->calloc->ptr)(nelem, elsize);
+	void *ptr;
+	if (((PyDataMem_Funcs *) ctx)->self) {
+		ptr = ((PyDataMemBaseObject_CallocFunc *) *((PyDataMem_Funcs *) ctx)->calloc->ptr)(((PyDataMem_Funcs *) ctx)->self, nelem, elsize);
+	} else {
+		ptr = ((PyDataMemType_CallocFunc *) *((PyDataMem_Funcs *) ctx)->calloc->ptr)(nelem, elsize);
+	}
 	if (PyGILState_Check()) {
 		PyErr_Restore(type, value, traceback);
 	}
@@ -107,6 +135,8 @@ static void handler_destructor(PyObject *handler) {
 	Py_XDECREF(((PyDataMem_Funcs *) mem_handler->allocator.ctx)->free);
 
 	Py_XDECREF(((PyDataMem_Funcs *) mem_handler->allocator.ctx)->calloc);
+
+	Py_XDECREF(((PyDataMem_Funcs *) mem_handler->allocator.ctx)->self);
 
 	free(mem_handler->allocator.ctx);
 
@@ -152,6 +182,11 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 		Py_DECREF(name);
 
 		mem_handler->version = 1;
+
+		if (!PyType_Check(allocator)) {
+			Py_INCREF(allocator);
+			((PyDataMem_Funcs *) mem_handler->allocator.ctx)->self = allocator;
+		}
 
 		if (PyObject_HasAttrString(allocator, "_calloc_")) {
 			PyObject *_calloc_ = PyObject_GetAttrString(allocator, "_calloc_");
@@ -335,7 +370,8 @@ static PyObject *__enter__(PyObject *allocator, PyObject *args) {
 		return NULL;
 	}
 
-	Py_RETURN_NONE;
+	Py_INCREF(allocator);
+	return allocator;
 }
 
 static PyMethodDef tp_methods[] = {
@@ -366,6 +402,15 @@ static PyTypeObject type = {
 	.tp_base = &PyType_Type,
 };
 
+static PyTypeObject object = {
+	PyVarObject_HEAD_INIT(NULL, 0)
+	.tp_name = "numpy_allocator.object",
+	.tp_str = tp_str,
+	.tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
+	.tp_methods = tp_methods,
+	.tp_base = &PyBaseObject_Type,
+};
+
 static int exec_module(PyObject *module) {
 	PyObject *list = PyList_New(0);
 	if (!list) {
@@ -375,6 +420,23 @@ static int exec_module(PyObject *module) {
     var = PyContextVar_New("var", list);
     Py_DECREF(list);
     if (!var) {
+		return -1;
+	}
+
+	object.tp_new = PyBaseObject_Type.tp_new;
+	if (PyType_Ready(&object)) {
+		Py_DECREF(var);
+
+		return -1;
+	}
+
+	Py_INCREF(&object);
+
+	if (PyModule_AddObject(module, "object", (PyObject *) &object)) {
+		Py_DECREF(&object);
+
+		Py_DECREF(var);
+
 		return -1;
 	}
 
@@ -389,6 +451,8 @@ static int exec_module(PyObject *module) {
 
 	if (PyModule_AddObject(module, "type", (PyObject *) &type)) {
 		Py_DECREF(&type);
+
+		Py_DECREF(&object);
 
 		Py_DECREF(var);
 
