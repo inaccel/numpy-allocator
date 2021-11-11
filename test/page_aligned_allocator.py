@@ -1,4 +1,5 @@
 from ctypes import *
+from mmap import PAGESIZE
 import numpy_allocator
 
 std = CDLL(None)
@@ -19,30 +20,24 @@ std.realloc.argtypes = [c_void_p, c_size_t]
 std.realloc.restype = c_void_p
 
 
-class aligned_allocator(numpy_allocator.object):
-    def __init__(self, alignment):
-        self.alignment = alignment
-
-    def __str__(self):
-        return '{}({})'.format(self.__class__.__name__, self.alignment)
-
-    @CFUNCTYPE(c_void_p, py_object, c_size_t, c_size_t)
-    def _calloc_(self, nelem, elsize):
-        result = std.memalign(self.alignment, nelem * elsize)
+class page_aligned_allocator(metaclass=numpy_allocator.type):
+    @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
+    def _calloc_(nelem, elsize):
+        result = std.memalign(PAGESIZE, nelem * elsize)
         if result:
             result = std.memset(result, 0, nelem * elsize)
         return result
 
-    @CFUNCTYPE(c_void_p, py_object, c_size_t)
-    def _malloc_(self, size):
-        return std.memalign(self.alignment, size)
+    @CFUNCTYPE(c_void_p, c_size_t)
+    def _malloc_(size):
+        return std.memalign(PAGESIZE, size)
 
-    @CFUNCTYPE(c_void_p, py_object, c_void_p, c_size_t)
-    def _realloc_(self, ptr, new_size):
+    @CFUNCTYPE(c_void_p, c_void_p, c_size_t)
+    def _realloc_(ptr, new_size):
         result = std.realloc(ptr, new_size)
-        if result and result % self.alignment != 0:
+        if result and result % PAGESIZE != 0:
             tmp = result
-            result = std.memalign(self.alignment, new_size)
+            result = std.memalign(PAGESIZE, new_size)
             if result:
                 result = std.memcpy(result, tmp, new_size)
             std.free(tmp)
@@ -50,10 +45,9 @@ class aligned_allocator(numpy_allocator.object):
 
 
 def main():
-    from mmap import PAGESIZE
     import numpy as np
 
-    with aligned_allocator(PAGESIZE) as page_aligned_allocator:
+    with page_aligned_allocator:
         print(page_aligned_allocator)
 
         np.core.test()
