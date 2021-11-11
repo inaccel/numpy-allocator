@@ -2,10 +2,18 @@ from setuptools import Extension, setup
 
 import numpy
 
+
+def README():
+    with open('README.md') as md:
+        return md.read()
+
+
 setup(
     name='numpy-allocator',
     version='1.0.0',
-    description='numpy allocator',
+    description='Configurable memory allocations',
+    long_description=README(),
+    long_description_content_type='text/markdown',
     author='InAccel',
     author_email='info@inaccel.com',
     url='https://github.com/inaccel/numpy-allocator',
