@@ -1,5 +1,8 @@
-name: pypi
-on: workflow_dispatch
+name: PyPI
+on:
+  push:
+    tags:
+    - v*.*.*
 jobs:
   pipeline:
     runs-on: ubuntu-latest
@@ -15,12 +18,12 @@ jobs:
     - name: Create source distribution
       run: python setup.py sdist
     - name: Create (binary) wheel distributions
-      uses: joerick/cibuildwheel@v1.10.0
+      uses: pypa/cibuildwheel@v2.2.2
       with:
         output-dir: dist
       env:
         CIBW_BEFORE_BUILD: pip install -r requirements.txt
-    - name: Publish package to PyPI
+    - name: Publish distributions to PyPI
       uses: pypa/gh-action-pypi-publish@master
       with:
         user: __token__

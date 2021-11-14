@@ -442,6 +442,8 @@ static int exec_module(PyObject *module) {
 
 	type.tp_new = PyType_Type.tp_new;
 	if (PyType_Ready(&type)) {
+		Py_DECREF(&object);
+
 		Py_DECREF(var);
 
 		return -1;

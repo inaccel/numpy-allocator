@@ -10,7 +10,7 @@ def README():
 
 setup(
     name='numpy-allocator',
-    version='1.0.0',
+    use_scm_version=True,
     description='Configurable memory allocations',
     long_description=README(),
     long_description_content_type='text/markdown',
@@ -39,6 +39,9 @@ setup(
         'Programming Language :: Python :: 3.10',
     ],
     license='Apache-2.0',
+    platforms=[
+        'Linux',
+    ],
     install_requires=[
         'numpy',
     ],

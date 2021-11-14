@@ -1,3 +1,6 @@
 hypothesis
 git+https://github.com/numpy/numpy#egg=numpy
 pytest
+setuptools
+setuptools_scm
+wheel
