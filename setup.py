@@ -43,7 +43,7 @@ setup(
         'Linux',
     ],
     install_requires=[
-        'numpy',
+        'numpy>=1.22.0',
     ],
     python_requires='>=3.8',
 )
