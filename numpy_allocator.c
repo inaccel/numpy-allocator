@@ -461,6 +461,16 @@ static int exec_module(PyObject *module) {
 		return -1;
 	}
 
+	if (PyObject_SetAttrString(module, "default_handler", PyDataMem_DefaultHandler)) {
+		Py_DECREF(&type);
+
+		Py_DECREF(&object);
+
+		Py_DECREF(var);
+
+		return -1;
+	}
+
 	return 0;
 }
 
