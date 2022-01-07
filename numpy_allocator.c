@@ -1,4 +1,4 @@
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define NPY_NO_DEPRECATED_API NPY_1_22_API_VERSION
 
 #include <numpy/arrayobject.h>
 #include <string.h>
@@ -417,9 +417,9 @@ static int exec_module(PyObject *module) {
 		return -1;
 	}
 
-    var = PyContextVar_New("var", list);
-    Py_DECREF(list);
-    if (!var) {
+	var = PyContextVar_New("var", list);
+	Py_DECREF(list);
+	if (!var) {
 		return -1;
 	}
 
