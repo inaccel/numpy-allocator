@@ -267,6 +267,11 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 }
 
 static PyObject *handles(PyObject *allocator, PyObject *array) {
+	if (!PyArray_Check(array)) {
+		PyErr_SetString(PyExc_ValueError, "argument must be an ndarray");
+		return NULL;
+	}
+
 	while (array && PyArray_Check(array)) {
 		if (PyArray_CHKFLAGS((PyArrayObject *) array, NPY_ARRAY_OWNDATA)) {
 			PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) array);
@@ -291,8 +296,7 @@ static PyObject *handles(PyObject *allocator, PyObject *array) {
 		array = PyArray_BASE((PyArrayObject *) array);
 	}
 
-	PyErr_SetString(PyExc_ValueError, "argument must be an ndarray");
-	return NULL;
+	Py_RETURN_FALSE;
 }
 
 static PyObject *var;
@@ -494,6 +498,11 @@ static PyObject *get_handler(PyObject *module, PyObject *args) {
 	}
 
 	if (array) {
+		if (!PyArray_Check(array)) {
+			PyErr_SetString(PyExc_ValueError, "if supplied, argument must be an ndarray");
+			return NULL;
+		}
+
 		while (array && PyArray_Check(array)) {
 			if (PyArray_CHKFLAGS((PyArrayObject *) array, NPY_ARRAY_OWNDATA)) {
 				PyObject *array_handler = PyArray_HANDLER((PyArrayObject *) array);
@@ -509,8 +518,7 @@ static PyObject *get_handler(PyObject *module, PyObject *args) {
 			array = PyArray_BASE((PyArrayObject *) array);
 		}
 
-		PyErr_SetString(PyExc_ValueError, "if supplied, argument must be an ndarray");
-		return NULL;
+		Py_RETURN_NONE;
 	} else {
 		return PyDataMem_GetHandler();
 	}
