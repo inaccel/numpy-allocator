@@ -403,7 +403,6 @@ static PyTypeObject type = {
 	.tp_str = tp_str,
 	.tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
 	.tp_methods = tp_methods,
-	.tp_base = &PyType_Type,
 };
 
 static PyTypeObject object = {
@@ -412,7 +411,6 @@ static PyTypeObject object = {
 	.tp_str = tp_str,
 	.tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
 	.tp_methods = tp_methods,
-	.tp_base = &PyBaseObject_Type,
 };
 
 static int exec_module(PyObject *module) {
@@ -427,6 +425,7 @@ static int exec_module(PyObject *module) {
 		return -1;
 	}
 
+	object.tp_base = &PyBaseObject_Type;
 	object.tp_new = PyBaseObject_Type.tp_new;
 	if (PyType_Ready(&object)) {
 		Py_DECREF(var);
@@ -444,6 +443,7 @@ static int exec_module(PyObject *module) {
 		return -1;
 	}
 
+	type.tp_base = &PyType_Type;
 	type.tp_new = PyType_Type.tp_new;
 	if (PyType_Ready(&type)) {
 		Py_DECREF(&object);
