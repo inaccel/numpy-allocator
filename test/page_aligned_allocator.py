@@ -21,18 +21,16 @@ std.realloc.restype = c_void_p
 
 
 class page_aligned_allocator(metaclass=numpy_allocator.type):
-    @CFUNCTYPE(c_void_p, c_size_t, c_size_t)
+
     def _calloc_(nelem, elsize):
         result = std.memalign(PAGESIZE, nelem * elsize)
         if result:
             result = std.memset(result, 0, nelem * elsize)
         return result
 
-    @CFUNCTYPE(c_void_p, c_size_t)
     def _malloc_(size):
         return std.memalign(PAGESIZE, size)
 
-    @CFUNCTYPE(c_void_p, c_void_p, c_size_t)
     def _realloc_(ptr, new_size):
         result = std.realloc(ptr, new_size)
         if result and result % PAGESIZE != 0:
