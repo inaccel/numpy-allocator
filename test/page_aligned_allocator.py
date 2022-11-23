@@ -1,8 +1,9 @@
-from ctypes import *
+from ctypes import CDLL, c_int, c_size_t, c_void_p
+from ctypes.util import find_library
 from mmap import PAGESIZE
 import numpy_allocator
 
-std = CDLL(None)
+std = CDLL(find_library('c'))
 
 std.free.argtypes = [c_void_p]
 std.free.restype = None

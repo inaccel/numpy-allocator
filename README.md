@@ -11,8 +11,9 @@
 
 ```python
 >>> import ctypes
+>>> import ctypes.util
 >>> import numpy_allocator
->>> my = ctypes.CDLL('libmy.so')
+>>> my = ctypes.CDLL(ctypes.util.find_library('my'))
 >>> class my_allocator(metaclass=numpy_allocator.type):
 ...     _calloc_ = my.calloc_func
 ...     _free_ = my.free_func
