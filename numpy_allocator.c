@@ -4,10 +4,10 @@
 #include <string.h>
 
 typedef struct {
-	PyObject *calloc;
-	PyObject *free;
-	PyObject *malloc;
-	PyObject *realloc;
+	void *calloc;
+	void *free;
+	void *malloc;
+	void *realloc;
 } PyDataMem_Funcs;
 
 static void *call_realloc(PyObject *_realloc_, void *ptr, size_t new_size) {
@@ -47,13 +47,20 @@ static void *safe_realloc(void *ctx, void *ptr, size_t new_size) {
 	PyObject *value;
 	PyObject *traceback;
 	PyErr_Fetch(&type, &value, &traceback);
-	void *new_ptr = call_realloc(((PyDataMem_Funcs *) ctx)->realloc, ptr, new_size);
+	void *new_ptr = call_realloc((PyObject *) ((PyDataMem_Funcs *) ctx)->realloc, ptr, new_size);
 	if (PyErr_Occurred()) {
-		PyErr_WriteUnraisable(((PyDataMem_Funcs *) ctx)->realloc);
+		PyErr_WriteUnraisable((PyObject *) ((PyDataMem_Funcs *) ctx)->realloc);
 	}
 	PyErr_Restore(type, value, traceback);
 	PyGILState_Release(state);
 	return new_ptr;
+}
+
+typedef void *(PyDataMem_ReallocFunc)(void *ptr, size_t new_size);
+
+static void *unsafe_realloc(void *ctx, void *ptr, size_t new_size) {
+	void **_realloc_ = ((PyDataMem_Funcs *) ctx)->realloc;
+	return ((PyDataMem_ReallocFunc *) *_realloc_)(ptr, new_size);
 }
 
 static void *default_realloc(void *ctx, void *ptr, size_t new_size) {
@@ -84,13 +91,20 @@ static void *safe_malloc(void *ctx, size_t size) {
 	PyObject *value;
 	PyObject *traceback;
 	PyErr_Fetch(&type, &value, &traceback);
-	void *ptr = call_malloc(((PyDataMem_Funcs *) ctx)->malloc, size);
+	void *ptr = call_malloc((PyObject *) ((PyDataMem_Funcs *) ctx)->malloc, size);
 	if (PyErr_Occurred()) {
-		PyErr_WriteUnraisable(((PyDataMem_Funcs *) ctx)->malloc);
+		PyErr_WriteUnraisable((PyObject *) ((PyDataMem_Funcs *) ctx)->malloc);
 	}
 	PyErr_Restore(type, value, traceback);
 	PyGILState_Release(state);
 	return ptr;
+}
+
+typedef void *(PyDataMem_MallocFunc)(size_t size);
+
+static void *unsafe_malloc(void *ctx, size_t size) {
+	void **_malloc_ = ((PyDataMem_Funcs *) ctx)->malloc;
+	return ((PyDataMem_MallocFunc *) *_malloc_)(size);
 }
 
 static void *default_malloc(void *ctx, size_t size) {
@@ -125,12 +139,19 @@ static void safe_free(void *ctx, void *ptr, size_t size) {
 	PyObject *value;
 	PyObject *traceback;
 	PyErr_Fetch(&type, &value, &traceback);
-	call_free(((PyDataMem_Funcs *) ctx)->free, ptr, size);
+	call_free((PyObject *) ((PyDataMem_Funcs *) ctx)->free, ptr, size);
 	if (PyErr_Occurred()) {
-		PyErr_WriteUnraisable(((PyDataMem_Funcs *) ctx)->free);
+		PyErr_WriteUnraisable((PyObject *) ((PyDataMem_Funcs *) ctx)->free);
 	}
 	PyErr_Restore(type, value, traceback);
 	PyGILState_Release(state);
+}
+
+typedef void (PyDataMem_FreeFunc)(void *ptr, size_t size);
+
+static void unsafe_free(void *ctx, void *ptr, size_t size) {
+	void **_free_ = ((PyDataMem_Funcs *) ctx)->free;
+	((PyDataMem_FreeFunc *) *_free_)(ptr, size);
 }
 
 static void default_free(void *ctx, void *ptr, size_t size) {
@@ -168,13 +189,20 @@ static void *safe_calloc(void *ctx, size_t nelem, size_t elsize) {
 	PyObject *value;
 	PyObject *traceback;
 	PyErr_Fetch(&type, &value, &traceback);
-	void *ptr = call_calloc(((PyDataMem_Funcs *) ctx)->calloc, nelem, elsize);
+	void *ptr = call_calloc((PyObject *) ((PyDataMem_Funcs *) ctx)->calloc, nelem, elsize);
 	if (PyErr_Occurred()) {
-		PyErr_WriteUnraisable(((PyDataMem_Funcs *) ctx)->calloc);
+		PyErr_WriteUnraisable((PyObject *) ((PyDataMem_Funcs *) ctx)->calloc);
 	}
 	PyErr_Restore(type, value, traceback);
 	PyGILState_Release(state);
 	return ptr;
+}
+
+typedef void *(PyDataMem_CallocFunc)(size_t nelem, size_t elsize);
+
+static void *unsafe_calloc(void *ctx, size_t nelem, size_t elsize) {
+	void **_calloc_ = ((PyDataMem_Funcs *) ctx)->calloc;
+	return ((PyDataMem_CallocFunc *) *_calloc_)(nelem, elsize);
 }
 
 static void *default_calloc(void *ctx, size_t nelem, size_t elsize) {
@@ -249,9 +277,24 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 			} else if (_calloc_ == Py_None) {
 				Py_DECREF(_calloc_);
 				mem_handler->allocator.calloc = default_calloc;
-			} else {
+			} else if (PyLong_Check(_calloc_)) {
+				void *ptr = PyLong_AsVoidPtr(_calloc_);
+				Py_DECREF(_calloc_);
+				if (!ptr) {
+					Py_DECREF(handler);
+
+					return NULL;
+				}
+				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->calloc = ptr;
+				mem_handler->allocator.calloc = unsafe_calloc;
+			} else if (PyCallable_Check(_calloc_)) {
 				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->calloc = _calloc_;
 				mem_handler->allocator.calloc = safe_calloc;
+			} else {
+				Py_DECREF(handler);
+
+				PyErr_SetString(PyExc_TypeError, "_calloc_ must be an integer address or a callable");
+				return NULL;
 			}
 		} else {
 			mem_handler->allocator.calloc = default_calloc;
@@ -266,9 +309,24 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 			} else if (_free_ == Py_None) {
 				Py_DECREF(_free_);
 				mem_handler->allocator.free = default_free;
-			} else {
+			} else if (PyLong_Check(_free_)) {
+				void *ptr = PyLong_AsVoidPtr(_free_);
+				Py_DECREF(_free_);
+				if (!ptr) {
+					Py_DECREF(handler);
+
+					return NULL;
+				}
+				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->free = ptr;
+				mem_handler->allocator.free = unsafe_free;
+			} else if (PyCallable_Check(_free_)) {
 				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->free = _free_;
 				mem_handler->allocator.free = safe_free;
+			} else {
+				Py_DECREF(handler);
+
+				PyErr_SetString(PyExc_TypeError, "_free_ must be an integer address or a callable");
+				return NULL;
 			}
 		} else {
 			mem_handler->allocator.free = default_free;
@@ -283,9 +341,24 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 			} else if (_malloc_ == Py_None) {
 				Py_DECREF(_malloc_);
 				mem_handler->allocator.malloc = default_malloc;
-			} else {
+			} else if (PyLong_Check(_malloc_)) {
+				void *ptr = PyLong_AsVoidPtr(_malloc_);
+				Py_DECREF(_malloc_);
+				if (!ptr) {
+					Py_DECREF(handler);
+
+					return NULL;
+				}
+				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->malloc = ptr;
+				mem_handler->allocator.malloc = unsafe_malloc;
+			} else if (PyCallable_Check(_malloc_)) {
 				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->malloc = _malloc_;
 				mem_handler->allocator.malloc = safe_malloc;
+			} else {
+				Py_DECREF(handler);
+
+				PyErr_SetString(PyExc_TypeError, "_malloc_ must be an integer address or a callable");
+				return NULL;
 			}
 		} else {
 			mem_handler->allocator.malloc = default_malloc;
@@ -300,9 +373,24 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 			} else if (_realloc_ == Py_None) {
 				Py_DECREF(_realloc_);
 				mem_handler->allocator.realloc = default_realloc;
-			} else {
+			} else if (PyLong_Check(_realloc_)) {
+				void *ptr = PyLong_AsVoidPtr(_realloc_);
+				Py_DECREF(_realloc_);
+				if (!ptr) {
+					Py_DECREF(handler);
+
+					return NULL;
+				}
+				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->realloc = ptr;
+				mem_handler->allocator.realloc = unsafe_realloc;
+			} else if (PyCallable_Check(_realloc_)) {
 				((PyDataMem_Funcs *) mem_handler->allocator.ctx)->realloc = _realloc_;
 				mem_handler->allocator.realloc = safe_realloc;
+			} else {
+				Py_DECREF(handler);
+
+				PyErr_SetString(PyExc_TypeError, "_realloc_ must be an integer address or a callable");
+				return NULL;
 			}
 		} else {
 			mem_handler->allocator.realloc = default_realloc;
@@ -320,7 +408,7 @@ static PyObject *handler(PyObject *allocator, PyObject *args) {
 
 static PyObject *handles(PyObject *allocator, PyObject *array) {
 	if (!PyArray_Check(array)) {
-		PyErr_SetString(PyExc_ValueError, "argument must be an ndarray");
+		PyErr_SetString(PyExc_TypeError, "argument must be an ndarray");
 		return NULL;
 	}
 
@@ -551,7 +639,7 @@ static PyObject *get_handler(PyObject *module, PyObject *args) {
 
 	if (array) {
 		if (!PyArray_Check(array)) {
-			PyErr_SetString(PyExc_ValueError, "if supplied, argument must be an ndarray");
+			PyErr_SetString(PyExc_TypeError, "if supplied, argument must be an ndarray");
 			return NULL;
 		}
 

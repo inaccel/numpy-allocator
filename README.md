@@ -15,10 +15,10 @@
 >>> import numpy_allocator
 >>> my = ctypes.CDLL(ctypes.util.find_library('my'))
 >>> class my_allocator(metaclass=numpy_allocator.type):
-...     _calloc_ = my.calloc_func
-...     _free_ = my.free_func
-...     _malloc_ = my.malloc_func
-...     _realloc_ = my.realloc_func
+...     _calloc_ = ctypes.addressof(my.calloc_func)
+...     _free_ = ctypes.addressof(my.free_func)
+...     _malloc_ = ctypes.addressof(my.malloc_func)
+...     _realloc_ = ctypes.addressof(my.realloc_func)
 ...
 ```
 
