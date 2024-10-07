@@ -27,7 +27,7 @@ setup(
                 numpy.get_include(),
             ],
             extra_compile_args=[
-                '-DNPY_NO_DEPRECATED_API=NPY_1_22_API_VERSION'
+                '-DNPY_TARGET_VERSION=NPY_1_22_API_VERSION'
             ],
         ),
     ],
