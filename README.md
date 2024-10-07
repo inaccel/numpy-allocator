@@ -1,6 +1,6 @@
 ## Memory management in [NumPy](https://numpy.org)*
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://gesis.mybinder.org/v2/gh/inaccel/numpy-allocator/master?labpath=NumPy-Allocator.ipynb)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/inaccel/numpy-allocator/master?labpath=NumPy-Allocator.ipynb)
 [![PyPI version](https://badge.fury.io/py/numpy-allocator.svg)](https://badge.fury.io/py/numpy-allocator)
 
 **NumPy is a trademark owned by [NumFOCUS](https://numfocus.org).*
