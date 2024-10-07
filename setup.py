@@ -26,6 +26,9 @@ setup(
             include_dirs=[
                 numpy.get_include(),
             ],
+            extra_compile_args=[
+                '-DNPY_NO_DEPRECATED_API=NPY_1_22_API_VERSION'
+            ],
         ),
     ],
     classifiers=[
