@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-  "numpy>=1.22.0",
+  "numpy>=1.22",
   "setuptools",
   "setuptools_scm",
   "wheel"
@@ -8,6 +8,5 @@ requires = [
 
 [tool.cibuildwheel]
 build = [
-  "cp3*",
-  "pp3*"
+  "cp3*"
 ]

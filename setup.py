@@ -39,15 +39,15 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
     ],
     license='Apache-2.0',
     platforms=[
         'Linux',
     ],
     install_requires=[
-        'numpy>=1.22.0',
+        'numpy>=1.22',
     ],
     python_requires='>=3.8',
 )

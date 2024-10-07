@@ -567,7 +567,7 @@ static int exec_module(PyObject *module) {
 	}
 
 	object.tp_base = &PyBaseObject_Type;
-	object.tp_new = PyType_GenericNew;
+	object.tp_new = PyBaseObject_Type.tp_new;
 	if (PyType_Ready(&object)) {
 		Py_DECREF(var);
 
@@ -585,7 +585,7 @@ static int exec_module(PyObject *module) {
 	}
 
 	type.tp_base = &PyType_Type;
-	object.tp_new = PyType_GenericNew;
+	type.tp_new = PyType_Type.tp_new;
 	if (PyType_Ready(&type)) {
 		Py_DECREF(&object);
 
